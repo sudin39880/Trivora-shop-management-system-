@@ -1,0 +1,744 @@
+ var removed = products.pop();
+    notify("Last product removed: " + removed.name);
+    renderProducts("");
+}
+
+function restockAdmin() {
+    var codeText = document.getElementById("rcode").value;
+    var qtyText = document.getElementById("rqty").value;
+
+    if (currentUser.role != "admin") {
+        alert("Only the admin can restock products");
+        return false;
+    }
+    if (codeText == "" || qtyText == "") {
+        alert("Product code and quantity must be filled out");
+        return false;
+    }
+
+    var qty = qtyText * 1;
+    if (!(qty > 0)) {
+        alert("Quantity must be a number greater than 0");
+        return false;
+    }
+
+    var product = findProduct(codeText);
+    if (product == null) {
+        alert("No product found with this code");
+        return false;
+    }
+
+    product.qty += qty;
+    notify("Restocked: " + qty + " x " + product.name + " (now " + product.qty + ")");
+
+    document.getElementById("rcode").value = "";
+    document.getElementById("rqty").value = "";
+    renderProducts("");
+    return false;
+}
+
+function addStock() {
+    var codeText = document.getElementById("kcode").value;
+    var qtyText = document.getElementById("kqty").value;
+
+    if (currentUser.role != "employee") {
+        alert("Only an employee can add stock");
+        return false;
+    }
+    if (codeText == "" || qtyText == "") {
+        alert("Product code and quantity must be filled out");
+        return false;
+    }
+
+    var qty = qtyText * 1;
+    if (!(qty > 0)) {
+        alert("Quantity must be a number greater than 0");
+        return false;
+    }
+
+    var product = findProduct(codeText);
+    if (product == null) {
+        alert("No product found with this code");
+        return false;
+    }
+
+    product.qty += qty;
+    notify("Stock added: " + qty + " x " + product.name + " (now " + product.qty + ")");
+
+    document.getElementById("kcode").value = "";
+    document.getElementById("kqty").value = "";
+    renderProducts("");
+    return false;
+}
+
+function renderUsers() {
+    var text = "<table><tr><th>Username</th><th>Name</th><th>Role</th><th>Action</th></tr>";
+    var i;
+
+    for (i = 0; i < users.length; i++) {
+        text += "<tr><td>" + users[i].username + "</td>" +
+            "<td>" + users[i].name + "</td>" +
+            "<td>" + users[i].role + "</td>";
+
+        if (users[i].role == "admin") {
+            text += "<td>-</td></tr>";
+        } else {
+            text += "<td><button onclick=\"deleteUser('" + users[i].username + "')\">Delete</button></td></tr>";
+        }
+    }
+    text += "</table>";
+
+    document.getElementById("userTable").innerHTML = text;
+}
+
+function addUser() {
+    var name = document.getElementById("uname").value.trim();
+    var username = document.getElementById("uusername").value.trim();
+    var password = document.getElementById("upassword").value;
+    var role = document.getElementById("urole").value.trim().toLowerCase();
+    var i;
+
+    if (currentUser.role != "admin") {
+        alert("Only the admin can add users");
+        return false;
+    }
+    if (name == "" || username == "" || password == "" || role == "") {
+        alert("All fields must be filled out");
+        return false;
+    }
+    if (password.length < 4) {
+        alert("Password must be at least 4 characters");
+        return false;
+    }
+    if (role != "employee" && role != "customer") {
+        alert("Role must be employee or customer");
+        return false;
+    }
+    for (i = 0; i < users.length; i++) {
+        if (users[i].username === username) {
+            alert("This username is already taken");
+            return false;
+        }
+    }
+
+    users.push({ username: username, password: password, name: name, role: role });
+    notify("User added: " + name + " (" + role + ")");
+
+    document.getElementById("uname").value = "";
+    document.getElementById("uusername").value = "";
+    document.getElementById("upassword").value = "";
+    document.getElementById("urole").value = "";
+    renderUsers();
+    return false;
+}
+
+function deleteUser(username) {
+    var newList = [];
+    var i;
+
+    if (currentUser.role != "admin") {
+        alert("Only the admin can delete users");
+        return;
+    }
+
+    for (i = 0; i < users.length; i++) {
+        if (users[i].username === username && users[i].role != "admin") {
+            notify("User deleted: " + users[i].name);
+        } else {
+            newList.push(users[i]);
+        }
+    }
+
+    users = newList;
+    renderUsers();
+}
+
+function renderSaleProducts() {
+    var text = "<table><tr><th>Code</th><th>Name</th><th>Price</th><th>In Stock</th></tr>";
+    var i;
+
+    for (i = 0; i < products.length; i++) {
+        text += "<tr><td>" + products[i].code + "</td>" +
+            "<td>" + products[i].name + "</td>" +
+            "<td>" + products[i].price + "</td>" +
+            "<td>" + products[i].qty + "</td></tr>";
+    }
+    text += "</table>";
+
+    document.getElementById("saleProductTable").innerHTML = text;
+}
+
+function sellProduct() {
+    var codeText = document.getElementById("sid").value;
+    var qtyText = document.getElementById("sqty").value;
+    var customer = document.getElementById("scust").value.trim();
+    var msg = document.getElementById("saleMsg");
+
+    if (currentUser.role != "employee") {
+        alert("Only an employee can sell at the counter");
+        return false;
+    }
+    if (codeText == "" || qtyText == "") {
+        alert("Product code and quantity must be filled out");
+        return false;
+    }
+    if (customer == "") {
+        customer = "Walk-in";
+    }
+
+    var qty = qtyText * 1;
+    if (!(qty > 0)) {
+        alert("Quantity must be a number greater than 0");
+        return false;
+    }
+
+    var found = findProduct(codeText);
+
+    if (found == null) {
+        msg.innerHTML = "No product found with code " + codeText.trim().toUpperCase();
+        msg.style.color = "red";
+        return false;
+    }
+    if (qty > found.qty) {
+        msg.innerHTML = "Not enough stock! Only " + found.qty + " available.";
+        msg.style.color = "red";
+        return false;
+    }
+
+    var total = found.price * qty;
+    found.qty -= qty;
+    totalRevenue += total;
+
+    sales.push({
+        no: sales.length + 1,
+        type: "Counter",
+        code: found.code,
+        product: found.name,
+        customer: customer,
+        qty: qty,
+        total: total,
+        soldBy: currentUser.username
+    });
+
+    var receipt = "Sold " + qty + " x " + found.name.toUpperCase() + " = " + total + " Tk";
+    msg.innerHTML = receipt;
+    msg.style.color = "green";
+    notify(receipt);
+
+    renderSaleProducts();
+    document.getElementById("sid").value = "";
+    document.getElementById("sqty").value = "";
+    document.getElementById("scust").value = "";
+    return false;
+}
+
+function renderOrders() {
+    var i;
+    var o;
+
+    if (orders.length == 0) {
+        document.getElementById("ordersTable").innerHTML = "<p>No orders yet.</p>";
+        return;
+    }
+
+    var text = "<table><tr><th>Order</th><th>Customer</th><th>Code</th><th>Product</th>" +
+        "<th>Qty</th><th>Total (Tk)</th><th>Status</th><th>Action</th></tr>";
+
+    for (i = 0; i < orders.length; i++) {
+        o = orders[i];
+        text += "<tr><td>#" + o.no + "</td>" +
+            "<td>" + o.customerName + "</td>" +
+            "<td>" + o.code + "</td>" +
+            "<td>" + o.product + "</td>" +
+            "<td>" + o.qty + "</td>" +
+            "<td>" + o.total + "</td>" +
+            "<td class='" + statusClass(o.status) + "'>" + o.status + "</td>";
+
+        if (o.status == "Pending") {
+            text += "<td><button onclick='confirmOrder(" + o.no + ")'>Confirm</button> " +
+                "<button onclick='rejectOrder(" + o.no + ")'>Reject</button></td></tr>";
+        } else {
+            text += "<td>" + (o.handledBy == "" ? "-" : o.handledBy) + "</td></tr>";
+        }
+    }
+    text += "</table>";
+
+    document.getElementById("ordersTable").innerHTML = text;
+}
+
+function findOrder(no) {
+    var i;
+    for (i = 0; i < orders.length; i++) {
+        if (orders[i].no == no) {
+            return orders[i];
+        }
+    }
+    return null;
+}
+
+function confirmOrder(no) {
+    var order = findOrder(no);
+
+    if (currentUser.role != "employee") {
+        alert("Only an employee can confirm orders");
+        return;
+    }
+    if (order == null || order.status != "Pending") {
+        alert("This order cannot be confirmed");
+        return;
+    }
+
+    var product = findProduct(order.code);
+    if (product == null) {
+        alert("This product no longer exists. Please reject the order.");
+        return;
+    }
+    if (order.qty > product.qty) {
+        alert("Not enough stock! Only " + product.qty + " available. Add stock first.");
+        return;
+    }
+
+    product.qty -= order.qty;
+    totalRevenue += order.total;
+    sales.push({
+        no: sales.length + 1,
+        type: "Online",
+        code: order.code,
+        product: order.product,
+        customer: order.customerName,
+        qty: order.qty,
+        total: order.total,
+        soldBy: currentUser.username
+    });
+
+    order.status = "Completed";
+    order.handledBy = currentUser.name;
+    notify("Order #" + no + " confirmed");
+    renderOrders();
+}
+
+function rejectOrder(no) {
+    var order = findOrder(no);
+
+    if (currentUser.role != "employee") {
+        alert("Only an employee can reject orders");
+        return;
+    }
+    if (order == null || order.status != "Pending") {
+        alert("This order cannot be rejected");
+        return;
+    }
+
+    order.status = "Rejected";
+    order.handledBy = currentUser.name;
+    notify("Order #" + no + " rejected");
+    renderOrders();
+}
+
+function renderSales() {
+    var isAdmin = (currentUser.role == "admin");
+    var s;
+    var i = 0;
+    var shown = 0;
+    var total = 0;
+    var counterTotal = 0;
+    var onlineTotal = 0;
+
+    var text = "<table><tr><th>No</th><th>Type</th><th>Code</th><th>Product</th>" +
+        "<th>Customer</th><th>Qty</th><th>Total (Tk)</th>";
+    if (isAdmin) {
+        text += "<th>Sold By</th>";
+    }
+    text += "</tr>";
+
+    while (i < sales.length) {
+        s = sales[i];
+
+        if (isAdmin || s.soldBy === currentUser.username) {
+            text += "<tr><td>" + s.no + "</td>" +
+                "<td>" + s.type + "</td>" +
+                "<td>" + s.code + "</td>" +
+                "<td>" + s.product + "</td>" +
+                "<td>" + s.customer + "</td>" +
+                "<td>" + s.qty + "</td>" +
+                "<td>" + s.total + "</td>";
+            if (isAdmin) {
+                text += "<td>" + s.soldBy + "</td>";
+            }
+            text += "</tr>";
+
+            total += s.total;
+            if (s.type == "Counter") {
+                counterTotal += s.total;
+            } else {
+                onlineTotal += s.total;
+            }
+            shown++;
+        }
+        i++;
+    }
+
+    if (shown == 0) {
+        document.getElementById("salesSummary").innerHTML = "";
+        document.getElementById("salesTable").innerHTML = "<p>No sales yet.</p>";
+        return;
+    }
+
+    text += "<tr><th colspan='6'>Total</th><th>" + total + "</th>";
+    if (isAdmin) {
+        text += "<th></th>";
+    }
+    text += "</tr></table>";
+
+    document.getElementById("salesSummary").innerHTML =
+        "<b>Counter sales:</b> " + counterTotal + " Tk &nbsp;|&nbsp; <b>Online sales:</b> " +
+        onlineTotal + " Tk &nbsp;|&nbsp; <b>Number of sales:</b> " + shown;
+    document.getElementById("salesTable").innerHTML = text;
+}
+
+function renderShop(filterText) {
+    var text = "<table><tr><th>Code</th><th>Name</th><th>Category</th><th>Price (Tk)</th>" +
+        "<th>Availability</th><th>Action</th></tr>";
+    var i;
+    var p;
+    var availability;
+    var shown = 0;
+    var search = filterText.toLowerCase();
+
+    for (i = 0; i < products.length; i++) {
+        p = products[i];
+
+        if (search == "" ||
+            p.code.toLowerCase().includes(search) ||
+            p.name.toLowerCase().includes(search) ||
+            p.category.toLowerCase().includes(search)) {
+
+            if (p.qty == 0) {
+                availability = "<td class='low'>Out of stock</td>";
+            } else if (p.qty <= LOW_STOCK_LIMIT) {
+                availability = "<td class='warn'>Only " + p.qty + " left</td>";
+            } else {
+                availability = "<td class='ok'>Available</td>";
+            }
+
+            text += "<tr><td>" + p.code + "</td>" +
+                "<td>" + p.name + "</td>" +
+                "<td>" + p.category + "</td>" +
+                "<td>" + p.price + "</td>" +
+                availability +
+                "<td><button onclick=\"addToCart('" + p.code + "')\">Add to Cart</button></td></tr>";
+            shown++;
+        }
+    }
+    text += "</table>";
+
+    if (shown == 0) {
+        text = "<p>No products found.</p>";
+    }
+    document.getElementById("shopTable").innerHTML = text;
+}
+
+function searchShop() {
+    renderShop(document.getElementById("shopSearch").value);
+}
+
+function clearShopSearch() {
+    document.getElementById("shopSearch").value = "";
+    renderShop("");
+}
+
+function addToCart(codeText) {
+    var product = findProduct(codeText);
+    var i;
+    var line = null;
+
+    if (currentUser == null || currentUser.role != "customer") {
+        alert("Only a customer can use the cart");
+        return;
+    }
+    if (product == null) {
+        alert("No product found with this code");
+        return;
+    }
+    if (product.qty == 0) {
+        alert(product.name + " is out of stock.");
+        return;
+    }
+
+    for (i = 0; i < cart.length; i++) {
+        if (cart[i].code === product.code) {
+            line = cart[i];
+        }
+    }
+
+    if (line == null) {
+        cart.push({ code: product.code, name: product.name, price: product.price, qty: 1 });
+    } else {
+        if (line.qty + 1 > product.qty) {
+            alert("Only " + product.qty + " x " + product.name + " in stock.");
+            return;
+        }
+        line.qty++;
+    }
+
+    notify(product.name + " added to cart");
+    renderCart();
+}
+
+function removeFromCart(codeText) {
+    var newList = [];
+    var i;
+    var removedName = "";
+
+    for (i = 0; i < cart.length; i++) {
+        if (cart[i].code === codeText) {
+            removedName = cart[i].name;
+        } else {
+            newList.push(cart[i]);
+        }
+    }
+
+    cart = newList;
+    if (removedName != "") {
+        notify(removedName + " removed from cart");
+    }
+    renderCart();
+}
+
+function clearCart() {
+    cart = [];
+    notify("Cart cleared");
+    renderCart();
+}
+
+function cartTotal() {
+    var i;
+    var total = 0;
+    for (i = 0; i < cart.length; i++) {
+        total += cart[i].price * cart[i].qty;
+    }
+    return total;
+}
+
+function renderCart() {
+    var msg = document.getElementById("cartMsg");
+    var i;
+
+    if (cart.length == 0) {
+        document.getElementById("cartTable").innerHTML = "<p>Your cart is empty.</p>";
+        msg.innerHTML = "";
+        return;
+    }
+
+    var text = "<table><tr><th>Code</th><th>Product</th><th>Price</th><th>Qty</th>" +
+        "<th>Subtotal</th><th>Action</th></tr>";
+
+    for (i = 0; i < cart.length; i++) {
+        text += "<tr><td>" + cart[i].code + "</td>" +
+            "<td>" + cart[i].name + "</td>" +
+            "<td>" + cart[i].price + "</td>" +
+            "<td>" + cart[i].qty + "</td>" +
+            "<td>" + (cart[i].price * cart[i].qty) + "</td>" +
+            "<td><button onclick=\"removeFromCart('" + cart[i].code + "')\">Remove</button></td></tr>";
+    }
+
+    text += "<tr><th colspan='4'>Total</th><th>" + cartTotal() + " Tk</th><th></th></tr>";
+    text += "</table>";
+
+    document.getElementById("cartTable").innerHTML = text;
+    msg.innerHTML = "<button class='btn' onclick=\"placeCartOrder()\">Place Order</button> " +
+        "<button class='btn' onclick=\"clearCart()\">Clear Cart</button>";
+}
+
+function placeCartOrder() {
+    var msg = document.getElementById("cartMsg");
+    var i;
+    var product;
+    var grandTotal = 0;
+    var firstNo = nextOrderNo;
+
+    if (currentUser == null || currentUser.role != "customer") {
+        alert("Only a customer can place orders");
+        return;
+    }
+    if (cart.length == 0) {
+        alert("Your cart is empty");
+        return;
+    }
+
+    for (i = 0; i < cart.length; i++) {
+        product = findProduct(cart[i].code);
+        if (product == null) {
+            alert(cart[i].name + " no longer exists. Remove it from the cart.");
+            return;
+        }
+        if (cart[i].qty > product.qty) {
+            alert("Not enough stock for " + product.name + ". Only " + product.qty + " available.");
+            return;
+        }
+    }
+
+    for (i = 0; i < cart.length; i++) {
+        orders.push({
+            no: nextOrderNo,
+            username: currentUser.username,
+            customerName: currentUser.name,
+            code: cart[i].code,
+            product: cart[i].name,
+            qty: cart[i].qty,
+            total: cart[i].price * cart[i].qty,
+            status: "Pending",
+            handledBy: ""
+        });
+        grandTotal += cart[i].price * cart[i].qty;
+        nextOrderNo++;
+    }
+
+    cart = [];
+    renderCart();
+    msg.innerHTML = "<b>Orders #" + firstNo + " - " + (nextOrderNo - 1) +
+        "</b> placed!<br>Total: <b>" + grandTotal + " Tk</b>. " +
+        "Waiting for an employee to confirm.";
+    msg.style.color = "green";
+    notify("Cart order placed, total " + grandTotal + " Tk");
+}
+
+function placeOrder() {
+    var codeText = document.getElementById("ocode").value;
+    var qtyText = document.getElementById("oqty").value;
+    var msg = document.getElementById("orderMsg");
+
+    if (currentUser.role != "customer") {
+        alert("Only a customer can place orders");
+        return false;
+    }
+    if (codeText == "" || qtyText == "") {
+        alert("Product code and quantity must be filled out");
+        return false;
+    }
+
+    var qty = qtyText * 1;
+    if (!(qty > 0)) {
+        alert("Quantity must be a number greater than 0");
+        return false;
+    }
+
+    var product = findProduct(codeText);
+    if (product == null) {
+        msg.innerHTML = "No product found with code " + codeText.trim().toUpperCase();
+        msg.style.color = "red";
+        return false;
+    }
+    if (qty > product.qty) {
+        msg.innerHTML = "Sorry, only " + product.qty + " available.";
+        msg.style.color = "red";
+        return false;
+    }
+
+    orders.push({
+        no: nextOrderNo,
+        username: currentUser.username,
+        customerName: currentUser.name,
+        code: product.code,
+        product: product.name,
+        qty: qty,
+        total: product.price * qty,
+        status: "Pending",
+        handledBy: ""
+    });
+
+    msg.innerHTML = "Order #" + nextOrderNo + " placed! Waiting for an employee to confirm.";
+    msg.style.color = "green";
+    notify("Order #" + nextOrderNo + " placed: " + qty + " x " + product.name);
+    nextOrderNo++;
+
+    document.getElementById("ocode").value = "";
+    document.getElementById("oqty").value = "";
+    return false;
+}
+
+function renderMyOrders() {
+    var i;
+    var o;
+    var shown = 0;
+    var text = "<table><tr><th>Order</th><th>Code</th><th>Product</th><th>Qty</th>" +
+        "<th>Total (Tk)</th><th>Status</th><th>Action</th></tr>";
+
+    for (i = 0; i < orders.length; i++) {
+        o = orders[i];
+
+        if (o.username === currentUser.username) {
+            text += "<tr><td>#" + o.no + "</td>" +
+                "<td>" + o.code + "</td>" +
+                "<td>" + o.product + "</td>" +
+                "<td>" + o.qty + "</td>" +
+                "<td>" + o.total + "</td>" +
+                "<td class='" + statusClass(o.status) + "'>" + o.status + "</td>";
+
+            if (o.status == "Pending") {
+                text += "<td><button onclick='cancelOrder(" + o.no + ")'>Cancel</button></td></tr>";
+            } else {
+                text += "<td>-</td></tr>";
+            }
+            shown++;
+        }
+    }
+    text += "</table>";
+
+    if (shown == 0) {
+        text = "<p>You have not placed any order yet.</p>";
+    }
+    document.getElementById("myOrdersTable").innerHTML = text;
+}
+
+function cancelOrder(no) {
+    var order = findOrder(no);
+
+    if (order == null || order.username !== currentUser.username || order.status != "Pending") {
+        alert("This order cannot be cancelled");
+        return;
+    }
+
+    order.status = "Cancelled";
+    notify("Order #" + no + " cancelled");
+    renderMyOrders();
+}
+
+function renderAccount() {
+    document.getElementById("profileInfo").innerHTML =
+        "<b>Name:</b> " + currentUser.name + "<br>" +
+        "<b>Username:</b> " + currentUser.username + "<br>" +
+        "<b>Role:</b> " + currentUser.role;
+}
+
+function changePassword() {
+    var oldPass = document.getElementById("oldpass").value;
+    var newPass = document.getElementById("newpass").value;
+    var confPass = document.getElementById("confpass").value;
+
+    if (oldPass == "" || newPass == "" || confPass == "") {
+        alert("All fields must be filled out");
+        return false;
+    }
+    if (oldPass !== currentUser.password) {
+        alert("Old password is wrong");
+        return false;
+    }
+    if (newPass.length < 4) {
+        alert("New password must be at least 4 characters");
+        return false;
+    }
+    if (newPass !== confPass) {
+        alert("New password and confirm password do not match");
+        return false;
+    }
+
+    currentUser.password = newPass;
+    notify("Password changed successfully");
+    alert("Password changed successfully");
+
+    document.getElementById("oldpass").value = "";
+    document.getElementById("newpass").value = "";
+    document.getElementById("confpass").value = "";
+    return false;
+}
